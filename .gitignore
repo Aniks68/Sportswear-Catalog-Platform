@@ -9,3 +9,4 @@ coverage
 *.suo
 package-lock.json
 pnpm-workspace.yaml
+.firebase
