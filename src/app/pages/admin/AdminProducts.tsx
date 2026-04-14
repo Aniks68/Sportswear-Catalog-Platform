@@ -111,8 +111,16 @@ export default function AdminProducts() {
         await addProduct(productData);
       }
       handleCloseModal();
-    } catch (error) {
-      setUploadError('Error saving product. Please try again.');
+    } catch (error: any) {
+      console.error("Full error:", error);
+
+      let message = "Error saving product. Please try again.";
+
+      if (error instanceof Error) {
+        message = error.message;
+      }
+
+      setUploadError(message);
     }
   };
 
