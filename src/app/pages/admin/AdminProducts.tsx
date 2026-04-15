@@ -89,6 +89,10 @@ export default function AdminProducts() {
     }
   };
 
+  const removeNewFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -405,6 +409,33 @@ export default function AdminProducts() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {selectedFiles.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {selectedFiles.map((file, index) => {
+                      const previewUrl = URL.createObjectURL(file);
+
+                      return (
+                        <div key={index} className="relative group">
+                          <img
+                            src={previewUrl}
+                            alt={`New ${index}`}
+                            className="w-full h-24 object-cover rounded border border-border"
+                            onLoad={() => URL.revokeObjectURL(previewUrl)}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => removeNewFile(index)}
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
