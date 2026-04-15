@@ -1,12 +1,5 @@
-// Convert image file to base64 string for storage
-export const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { storage } from "./firebase"; // ✅ use existing instance
 
 // Validate image file
 export const validateImageFile = (file: File): boolean => {
@@ -24,16 +17,53 @@ export const validateImageFile = (file: File): boolean => {
   return true;
 };
 
-// Process multiple image files
-export const processImageFiles = async (files: FileList | File[]): Promise<string[]> => {
+// Upload single image
+export const uploadImage = async (
+  file: File,
+  productId: string
+): Promise<string> => {
+  validateImageFile(file);
+
+  const filePath = `products/${productId}/${Date.now()}-${file.name}`;
+  const storageRef = ref(storage, filePath);
+
+  await uploadBytes(storageRef, file);
+
+  return await getDownloadURL(storageRef);
+};
+
+// Upload multiple images
+export const uploadMultipleImages = async (
+  files: FileList | File[],
+  productId: string
+): Promise<string[]> => {
   const filesArray = Array.from(files);
-  const base64Images: string[] = [];
 
-  for (const file of filesArray) {
-    validateImageFile(file);
-    const base64 = await fileToBase64(file);
-    base64Images.push(base64);
-  }
+  return await Promise.all(
+    filesArray.map(file => uploadImage(file, productId))
+  );
+};
 
-  return base64Images;
+// Convert Firebase download URL → storage path
+const getPathFromUrl = (url: string): string => {
+  const baseUrl = "https://firebasestorage.googleapis.com/v0/b/";
+  const path = url.replace(baseUrl, "");
+
+  const parts = path.split("/o/");
+  if (parts.length < 2) throw new Error("Invalid Firebase URL");
+
+  const encodedPath = parts[1].split("?")[0];
+
+  return decodeURIComponent(encodedPath);
+};
+
+// Delete multiple images from storage
+export const deleteMultipleImages = async (urls: string[]) => {
+  const deletePromises = urls.map(url => {
+    const filePath = getPathFromUrl(url);
+    const fileRef = ref(storage, filePath);
+    return deleteObject(fileRef);
+  });
+
+  await Promise.all(deletePromises);
 };

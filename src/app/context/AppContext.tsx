@@ -11,7 +11,7 @@ interface AppContextType {
   loading: boolean;
   darkMode: boolean;
   toggleDarkMode: () => void;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<string>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   updateSettings: (settings: Settings) => Promise<void>;
@@ -87,12 +87,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addProduct = async (product: Omit<Product, 'id' | 'createdAt'>) => {
-    await productService.addProduct(product);
+  const addProduct = async (
+    product: Omit<Product, 'id' | 'createdAt'>
+    ): Promise<string> => {
+    return await productService.addProduct(product);
   };
 
-  const updateProduct = async (id: string, updatedProduct: Partial<Product>) => {
-    await productService.updateProduct(id, updatedProduct);
+  const updateProduct = async (
+    id: string,
+    updatedProduct: Partial<Product>
+  ): Promise<void> => {
+    return await productService.updateProduct(id, updatedProduct);
   };
 
   const deleteProduct = async (id: string) => {

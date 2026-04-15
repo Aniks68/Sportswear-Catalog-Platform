@@ -5,12 +5,13 @@ import AdminLayout from '../../components/AdminLayout';
 import { Plus, Edit, Trash2, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Product } from '../../data/products';
 import { categories } from '../../data/products';
-import { processImageFiles } from '../../../lib/imageUtils';
+import { deleteMultipleImages, uploadMultipleImages } from '../../../lib/imageUtils';
 
 export default function AdminProducts() {
   const { products, addProduct, updateProduct, deleteProduct } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -52,6 +53,8 @@ export default function AdminProducts() {
         colors: '',
       });
     }
+
+    setSelectedFiles([]);
     setUploadError('');
     setIsModalOpen(true);
   };
@@ -59,78 +62,148 @@ export default function AdminProducts() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingProduct(null);
+    setSelectedFiles([]);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError('');
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    try {
-      const base64Images = await processImageFiles(files);
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, ...base64Images],
-      }));
-    } catch (error: any) {
-      setUploadError(error.message);
-    }
+    setSelectedFiles(prev => [...prev, ...Array.from(files)]);
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }));
+  const removeImage = async (index: number) => {
+    const imageToDelete = formData.images[index];
+
+    try {
+      await deleteMultipleImages([imageToDelete]);
+
+      setFormData(prev => ({
+        ...prev,
+        images: prev.images.filter((_, i) => i !== index),
+      }));
+
+    } catch (error) {
+      console.error("Failed to delete image:", error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.images.length === 0) {
-      setUploadError('Please upload at least one product image');
-      return;
-    }
+  try {
+    let imageUrls: string[] = [...formData.images];
 
-    const productData = {
-      name: formData.name,
-      price: Number(formData.price),
-      description: formData.description,
-      category: formData.category,
-      images: formData.images,
-      isAvailable: formData.isAvailable,
-      isFeatured: formData.isFeatured,
-      sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()) : undefined,
-      colors: formData.colors ? formData.colors.split(',').map(c => c.trim()) : undefined,
-    };
+    // =========================
+    // 🟢 EDIT FLOW
+    // =========================
+    if (editingProduct) {
+      const productId = editingProduct.id;
 
-    try {
-      if (editingProduct) {
-        await updateProduct(editingProduct.id, productData);
-      } else {
-        await addProduct(productData);
-      }
-      handleCloseModal();
-    } catch (error: any) {
-      console.error("Full error:", error);
+      // Upload new images (if any)
+      if (selectedFiles.length > 0) {
+        const uploadedUrls = await uploadMultipleImages(
+          selectedFiles,
+          productId
+        );
 
-      let message = "Error saving product. Please try again.";
-
-      if (error instanceof Error) {
-        message = error.message;
+        imageUrls = [...imageUrls, ...uploadedUrls];
       }
 
-      setUploadError(message);
+      if (imageUrls.length === 0) {
+        setUploadError('Please upload at least one product image');
+        return;
+      }
+
+      const updatedProductData = {
+        name: formData.name,
+        price: Number(formData.price),
+        description: formData.description,
+        category: formData.category,
+        images: imageUrls,
+        isAvailable: formData.isAvailable,
+        isFeatured: formData.isFeatured,
+        sizes: formData.sizes
+          ? formData.sizes.split(',').map(s => s.trim())
+          : undefined,
+        colors: formData.colors
+          ? formData.colors.split(',').map(c => c.trim())
+          : undefined,
+      };
+
+      await updateProduct(productId, updatedProductData);
+    } else {
+      const baseProductData = {
+        name: formData.name,
+        price: Number(formData.price),
+        description: formData.description,
+        category: formData.category,
+        images: [], // 🔥 initially empty
+        isAvailable: formData.isAvailable,
+        isFeatured: formData.isFeatured,
+        sizes: formData.sizes
+          ? formData.sizes.split(',').map(s => s.trim())
+          : undefined,
+        colors: formData.colors
+          ? formData.colors.split(',').map(c => c.trim())
+          : undefined,
+      };
+
+      // 1. Create product FIRST
+      const productId = await addProduct(baseProductData);
+
+      // 2. Upload images using REAL product ID
+      if (selectedFiles.length > 0) {
+        imageUrls = await uploadMultipleImages(
+          selectedFiles,
+          productId
+        );
+      }
+
+    // =========================
+    // 🔵 CREATE FLOW (PERFECT VERSION)
+    // =========================
+
+      if (imageUrls.length === 0) {
+        setUploadError('Please upload at least one product image');
+        return;
+      }
+
+      // 3. Update product with image URLs
+      await updateProduct(productId, {
+        ...baseProductData,
+        images: imageUrls,
+      });
     }
-  };
+
+    handleCloseModal();
+
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    setUploadError(error?.message || "Error saving product");
+  }
+};
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      try {
-        await deleteProduct(id);
-      } catch (error) {
-        alert('Error deleting product. Please try again.');
+    if (!confirm('Are you sure you want to delete this product?')) return;
+
+    try {
+      const product = products.find(p => p.id === id);
+
+      if (!product) return;
+
+      // 🔥 Step 1: Delete images from Firebase Storage
+      if (product.images && product.images.length > 0) {
+        await deleteMultipleImages(product.images);
       }
+
+      // 🔥 Step 2: Delete product from Firestore
+      await deleteProduct(id);
+
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert('Error deleting product. Please try again.');
     }
   };
 
