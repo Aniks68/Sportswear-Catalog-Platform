@@ -9,6 +9,7 @@ import { deleteMultipleImages, uploadMultipleImages } from '../../../lib/imageUt
 
 export default function AdminProducts() {
   const { products, addProduct, updateProduct, deleteProduct } = useApp();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -95,6 +96,7 @@ export default function AdminProducts() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
   try {
     let imageUrls: string[] = [...formData.images];
@@ -181,10 +183,12 @@ export default function AdminProducts() {
       });
     }
 
+    setIsSubmitting(false);
     handleCloseModal();
 
   } catch (error: any) {
     console.error("Upload error:", error);
+    setIsSubmitting(false);
     setUploadError(error?.message || "Error saving product");
   }
 };
@@ -493,9 +497,18 @@ export default function AdminProducts() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-primary text-primary-foreground py-3 font-bold hover:bg-primary/90 transition-colors"
+                  disabled={isSubmitting}
+                  className={`flex-1 py-3 font-bold transition-colors ${
+                    isSubmitting
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
                 >
-                  {editingProduct ? 'Update Product' : 'Add Product'}
+                  {isSubmitting
+                    ? 'Processing...'
+                    : editingProduct
+                    ? 'Update Product'
+                    : 'Add Product'}
                 </button>
                 <button
                   type="button"
