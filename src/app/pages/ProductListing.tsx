@@ -15,7 +15,7 @@ export default function ProductListing() {
   }
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
