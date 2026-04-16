@@ -149,10 +149,18 @@ export default function AdminProducts() {
         isAvailable: formData.isAvailable,
         isFeatured: formData.isFeatured,
         sizes: formData.sizes
-          ? formData.sizes.split(',').map(s => s.trim())
+          ? formData.sizes
+              .split(',')
+              .map(s => s.trim().toUpperCase())
+              .filter(Boolean)
           : undefined,
+
         colors: formData.colors
-          ? formData.colors.split(',').map(c => c.trim())
+          ? formData.colors
+              .split(',')
+              .map(c => c.trim())
+              .filter(Boolean)
+              .map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase())
           : undefined,
       };
 
